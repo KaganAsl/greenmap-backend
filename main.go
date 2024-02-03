@@ -36,11 +36,11 @@ func main() {
     r.HandleFunc("/submitPin", server.SubmitPinHandler).Methods("POST")
 	r.HandleFunc("/getAllPins", server.GetAllPinsHandler).Methods("GET")
 
-		//allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+		allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
 
 		// CORS middleware
 		corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   []string{allowedOrigin},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
