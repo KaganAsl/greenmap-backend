@@ -1,37 +1,47 @@
 package message
 
-
-import (	    
-	"gorm.io/gorm"
+import (
 	"time"
 
-
+	"gorm.io/gorm"
 )
 
 type Pin struct {
-		gorm.Model
-		LocationID int 
-    Location Loc `json:"location"`
-		UserIP   string `json:"user_ip"` 
-    Title    string `json:"title"`
-    Text     string `json:"text"`
-    PhotoID  string `json:"photo_id"`
-    CreatedAt time.Time  `json:"-"`
-    DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-		UpdatedAt time.Time `json:"-"`
-		ID uint `json:"-"`
+	gorm.Model
+	LocationID int
+	Location   Loc            `json:"location"`
+	UserIP     string         `json:"user_ip"`
+	Title      string         `json:"title"`
+	Text       string         `json:"text"`
+	PhotoID    string         `json:"photo_id"`
+	CreatedAt  time.Time      `json:"-"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+	UpdatedAt  time.Time      `json:"-"`
+	ID         uint           `json:"-"`
 }
 
 type Loc struct {
-	ID uint `gorm:"primary_key"`
-	Lat string `json:"lat"` 
-	Long string `json:"long"` 
-
+	ID   uint   `gorm:"primary_key"`
+	Lat  string `json:"lat"`
+	Long string `json:"long"`
 }
 
+// Look Server GetAllPinsHandler
 type PinWithoutUserIP struct {
-    Pin
-    UserIP string `json:"-"`
+	Pin
+	UserIP string `json:"-"`
 }
 
+type User struct {
+	UserID   uint   `gorm:"primary_key"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+}
 
+type Session struct {
+	ID        uint      `gorm:"primary_key"`
+	UserID    uint      `json:"user_id"`
+	StartedAt time.Time `json:"started_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
