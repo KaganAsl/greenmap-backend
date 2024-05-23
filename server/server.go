@@ -301,7 +301,7 @@ func CreateSessionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error getting user", http.StatusNotFound)
 			return
 		}
-		token := utils.Base64EncodeString(utils.CreateToken(user.Username, session.StartedAt.String(), session.ExpiresAt.String()))
+		token := utils.Base64EncodeString(utils.CreateToken(user.Username, strconv.FormatInt(session.StartedAt.Unix(), 10), strconv.FormatInt(session.ExpiresAt.Unix(), 10)))
 		log.Println("Session Created successfully")
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(struct{ Token string }{Token: token})
@@ -396,7 +396,9 @@ func GetSessionHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	token := utils.Base64EncodeString(utils.CreateToken(user.Username, session.StartedAt.String(), session.ExpiresAt.String()))
+	startedAt := strconv.FormatInt(session.StartedAt.Unix(), 10)
+	expiresAt := strconv.FormatInt(session.ExpiresAt.Unix(), 10)
+	token := utils.Base64EncodeString(utils.CreateToken(user.Username, startedAt, expiresAt))
 	log.Println("Session Created successfully")
 	err = json.NewEncoder(w).Encode(struct{ Token string }{Token: token})
 	if err != nil {
