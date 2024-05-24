@@ -1,7 +1,10 @@
 package database
 
 import (
+	"encoding/json"
+	"errors"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -26,6 +29,42 @@ func InitDB() {
 	DB.AutoMigrate(&message.Pin{})
 	DB.AutoMigrate(&message.User{})
 	DB.AutoMigrate(&message.Session{})
+	DB.AutoMigrate(&message.Category{})
+
+	// Init Category
+	InitCategory()
+}
+
+func InitCategory() {
+	jsonFile, err := os.Open("./database/category.json")
+	if err != nil {
+		log.Fatal("Failed to open categories.json:", err)
+	}
+	defer jsonFile.Close()
+
+	byteValue, _ := os.ReadFile("./database/category.json")
+
+	type CategoryList struct {
+		Categories []string `json:"Categories"`
+	}
+
+	var categories CategoryList
+	json.Unmarshal(byteValue, &categories)
+
+	for _, category := range categories.Categories {
+		var cat message.Category
+		result := DB.Where("type = ?", category).First(&cat)
+		if result.Error == nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				cat.Type = category
+				log.Println("Category not found, Adding", category)
+				DB.Create(&cat)
+			} else {
+				log.Println("Category Init, Passing", category)
+			}
+		}
+	}
+
 }
 
 // Pin functions
@@ -210,4 +249,14 @@ func GetSessionByUserID(userID uint) (message.Session, error) {
 		return message.Session{}, result.Error
 	}
 	return session, nil
+}
+
+func GetCategories() ([]message.Category, error) {
+	var categories []message.Category
+	result := DB.Find(&categories)
+	if result.Error != nil {
+		log.Println("Could not get categories", result.Error)
+		return nil, result.Error
+	}
+	return categories, nil
 }

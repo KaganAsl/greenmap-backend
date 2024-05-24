@@ -21,9 +21,11 @@ type Pin struct {
 }
 
 type Loc struct {
-	ID   uint   `gorm:"primary_key"`
-	Lat  string `json:"lat"`
-	Long string `json:"long"`
+	ID        uint   `gorm:"primary_key"`
+	Lat       string `json:"lat"`
+	Long      string `json:"lng"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // Look Server GetAllPinsHandler
@@ -33,15 +35,23 @@ type PinWithoutUserIP struct {
 }
 
 type User struct {
-	UserID   uint   `gorm:"primary_key"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
+	UserID    uint   `gorm:"primary_key"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	Email     string `json:"email"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type Session struct {
-	ID        uint      `gorm:"primary_key"`
+	gorm.Model
 	UserID    uint      `json:"user_id"`
 	StartedAt time.Time `json:"started_at"`
 	ExpiresAt time.Time `json:"expires_at"`
+}
+
+type Category struct {
+	gorm.Model
+	Type string `json:"type"`
 }

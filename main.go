@@ -52,6 +52,9 @@ func main() {
 	v1.HandleFunc("/session/checkSession", server.CheckSessionHandler).Methods("GET")
 	v1.HandleFunc("/session/deleteSession", server.DeleteSessionHandler).Methods("DELETE")
 
+	// Categories
+	v1.HandleFunc("/category/getAllCategories", server.GetAllCategoriesHandler).Methods("GET")
+
 	//allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
 
 	// CORS middleware

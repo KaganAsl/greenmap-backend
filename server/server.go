@@ -443,3 +443,39 @@ func DeleteSessionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func GetAllCategoriesHandler(w http.ResponseWriter, r *http.Request) {
+	categories, err := database.GetCategories()
+
+	if err != nil {
+		http.Error(w, "Error Getting Category Values", http.StatusInternalServerError)
+		//log.Println("Error Getting Category Values", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+
+	type CategoryResponse struct {
+		ID   uint   `json:"id"`
+		Type string `json:"type"`
+	}
+
+	var categoriesResponse []CategoryResponse
+	for _, category := range categories {
+		categoriesResponse = append(categoriesResponse, CategoryResponse{ID: category.ID, Type: category.Type})
+	}
+
+	response := map[string][]CategoryResponse{
+		"Categories": categoriesResponse,
+	}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Println("Error encoding categories to JSON", err)
+		http.Error(w, "Error encoding categories to JSON", http.StatusInternalServerError)
+		return
+	}
+
+}
