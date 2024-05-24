@@ -1,0 +1,250 @@
+openapi: 3.0.0
+info:
+  title: GreenMap API EndPoints
+  version: 1.0.0
+paths:
+  /api/v1/pin/submitPin:
+    post:
+      summary: Create a new pin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pin'
+      responses:
+        '200':
+          description: Pin submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pin'
+        '400':
+          description: There is a different pin at that location
+        '500':
+          description: Error saving pin to database or You need to wait before submitting new Pin
+  /api/v1/pin/getAllPins:
+      summary: Get all pins
+      responses:
+        '200':
+          description: A list of pins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pin'
+        '500':
+          description: Error Getting Values
+  /api/v1/pin/GetPinsByLocation:
+    summary: Filter Pins by radius and given location
+    responses:
+      '200':
+        description: A list of pins
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Pin'
+      '500':
+        description: Error Getting Values
+  /api/v1/user/createUser:
+    post:
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '409':
+          description: Fill All Fields / Invalid Json Format
+        '400':
+          description: User already exists
+        '500':
+          description: Error saving user to database
+  /api/v1/user/getUserByUsername:
+    get:
+      summary: Get user by username
+      parameters:
+        - in: query
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '500':
+          description: Error encoding data
+  /api/v1/user/getUserByEmail:
+    get:
+      summary: Get user by email
+      parameters:
+        - in: query
+          name: email
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '500':
+          description: Error encoding data
+  /api/v1/session/createSession:
+    post:
+      summary: Create a new session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '409':
+          description: Fill All Fields / Invalid Json Format
+        '404':
+          description: User not found
+        '500':
+          description: Error saving session to database
+  /api/v1/session/getSession:
+    get:
+      summary: Get session by username
+      parameters:
+        - in: query
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid Request Body
+        '404':
+          description: Session not found
+        '500':
+          description: Error encoding data
+  /api/v1/session/deleteSession:
+    delete:
+      summary: Delete session by username
+      parameters:
+        - in: query
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session deleted successfully
+        '401':
+          description: Token is empty
+        '400':
+          description: Invalid Request Body
+        '404':
+          description: Session not found
+        '500':
+          description: Error encoding data
+  /api/v1/session/checkSession:
+    get:
+      summary: Check if session exists
+      parameters:
+        - in: query
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session exists
+        '400':
+          description: Invalid Request Body / No Token
+        '401':
+          description: Invalid Token
+        '404':
+          description: Session not found
+        '500':
+          description: Error encoding data
+components:
+  schemas:
+    Pin:
+      type: object
+      properties:
+        LocationID:
+          type: integer
+        Location:
+          $ref: '#/components/schemas/Loc'
+        UserIP:
+          type: string
+        Title:
+          type: string
+        Text:
+          type: string
+        PhotoID:
+          type: string
+        CreatedAt:
+          type: string
+          format: date-time
+        DeletedAt:
+          type: string
+          format: date-time
+        UpdatedAt:
+          type: string
+          format: date-time
+        ID:
+          type: integer
+    Loc:
+      type: object
+      properties:
+        ID:
+          type: integer
+        Lat:
+          type: string
+        Long:
+          type: string
+    PinWithoutUserIP:
+      allOf:
+        - $ref: '#/components/schemas/Pin'
+        - type: object
+          properties:
+            UserIP:
+              type: string
+    User:
+      type: object
+      properties:
+        Username:
+          type: string
+        Password:
+          type: string
+        Email:
+          type: string
