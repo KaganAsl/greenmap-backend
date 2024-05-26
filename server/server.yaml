@@ -195,6 +195,28 @@ paths:
           description: Session not found
         '500':
           description: Error encoding data
+  /api/v1/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid Request Body
+        '401':
+          description: Invalid Username or Password
+        '500':
+          description: Error encoding data
 components:
   schemas:
     Pin:

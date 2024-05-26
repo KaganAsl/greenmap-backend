@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,10 +14,20 @@ import (
 )
 
 func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
-	// Decode JSON from request body
-	var pin message.Pin
+	authToken := r.Header.Get("Authorization")
+	if authToken == "" {
+		log.Println("No Token")
+		http.Error(w, "No Token OR User Is not Authenticated", http.StatusBadRequest)
+		return
+	}
 
-	err := json.NewDecoder(r.Body).Decode(&pin)
+	// Decode JSON from request body
+	// In 'Data' form value, we have the JSON string
+	data := r.FormValue("Data")
+
+	var pin message.Pin
+	//err = json.NewDecoder(r.Body).Decode(&pin)
+	err := json.Unmarshal([]byte(data), &pin)
 	if err != nil {
 		log.Println("Invalid Json Format", err)
 		http.Error(w, "Invalid JSON format", http.StatusConflict)
@@ -25,6 +36,15 @@ func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
 
 	ipAdr := utils.GetIPAddress(r)
 	pin.UserIP = ipAdr
+
+	category, err := database.GetCategoryByID(pin.CategoryID)
+	if err != nil {
+		log.Println("Invalid Category ID", pin.CategoryID, err)
+		http.Error(w, "Error Getting Values", http.StatusInternalServerError)
+		return
+	}
+
+	pin.CategoryID = category.ID
 
 	if !utils.CheckMessageData(&pin) {
 		log.Println("Invalid Data", pin)
@@ -50,13 +70,47 @@ func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	w.WriteHeader(http.StatusOK)
+	_, _, err = r.FormFile("File")
+	var image message.File
+	if err == nil {
+		filename, err := utils.UploadFile(r)
+		if err != nil {
+			log.Println("Error uploading the file", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		status := database.CreateFile(filename)
+		if status != 1 {
+			http.Error(w, "Error saving file to database", http.StatusInternalServerError)
+			return
+		}
+		image, err = database.GetFileByName(filename)
+		if err != nil {
+			http.Error(w, "Error Getting Values", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	pin.PhotoID = image.ID
+	pin.Photo = image
 
 	if database.CreatePin(&pin) == 1 {
 		log.Println("Pin submitted successfully")
 		w.Header().Set("Content-Type", "application/json")
+
+		w.WriteHeader(http.StatusOK)
 		// Return the pin as JSON
-		err = json.NewEncoder(w).Encode(pin)
+
+		err = json.NewEncoder(w).Encode(&message.PinOutput{
+			ID:        pin.ID,
+			Location:  message.LocOutput{Lat: pin.Location.Lat, Long: pin.Location.Long},
+			Category:  message.CategoryOutput{ID: category.ID, Type: category.Type},
+			Title:     pin.Title,
+			Text:      pin.Text,
+			Photo:     message.FileOutput{ID: pin.Photo.ID, Name: pin.Photo.Name, Link: pin.Photo.Link},
+			CreatedAt: pin.CreatedAt,
+		})
 		if err != nil {
 			log.Println("Error encoding pin to JSON", err)
 			http.Error(w, "Error encoding pin to JSON", http.StatusInternalServerError)
@@ -108,6 +162,8 @@ func GetAllPinsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Filtering
+
 func GetPinsByLocationHandler(w http.ResponseWriter, r *http.Request) {
 	lat := r.URL.Query().Get("lat")
 	long := r.URL.Query().Get("long")
@@ -143,6 +199,11 @@ func GetPinsByLocationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func GetPinsByCategoryHandler(w http.ResponseWriter, r *http.Request) {
+}
+
+// Users
+
 func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	var user message.User
 
@@ -160,11 +221,11 @@ func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	if database.CreateUser(&user) == 1 {
 		log.Println("User Created successfully")
 		w.Header().Set("Content-Type", "application/json")
+
+		w.WriteHeader(http.StatusOK)
 		// Return the username as JSON
 		returnUser := message.User{Username: user.Username, UserID: user.UserID}
 		err = json.NewEncoder(w).Encode(returnUser)
@@ -271,6 +332,111 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Login
+
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	var user message.User
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		log.Println("Invalid Json Format", err)
+		http.Error(w, "Invalid JSON format", http.StatusConflict)
+		return
+	}
+
+	dbUser, err := database.GetUserByUsername(&user.Username)
+	if err != nil {
+		log.Println("Could not get user, username: ", user.Username, err)
+		http.Error(w, "Error getting user", http.StatusNotFound)
+		return
+	}
+
+	if user.Password != dbUser.Password {
+		log.Println("Invalid Password", user.Username)
+		http.Error(w, "Invalid Credientals", http.StatusUnauthorized)
+		return
+	}
+
+	token := utils.CreateSession(dbUser.UserID)
+	if token == "" {
+		log.Println("Token could not be created, Session already active")
+		http.Error(w, "Error creating session", http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: Improve this, It can be impelemented in a better way
+	sessionRes, err := database.GetSessionByUserID(dbUser.UserID)
+	if err != nil {
+		http.Error(w, "Cannot Get Session", http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ck := http.Cookie{
+		Name:     "GreenMap_AUTH",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		// Secure:   true, // Make sure to use this only if you have HTTPS enabled
+		Expires: sessionRes.ExpiresAt,
+	}
+
+	http.SetCookie(w, &ck)
+
+	w.WriteHeader(http.StatusOK)
+
+	log.Println("Session Created successfully")
+
+	type UserResponse struct {
+		Username string `json:"username"`
+		UserID   uint   `json:"user_id"`
+	}
+
+	err = json.NewEncoder(w).Encode(&UserResponse{Username: dbUser.Username, UserID: dbUser.UserID})
+	if err != nil {
+		log.Println("Error encoding user to JSON", err)
+		http.Error(w, "Error encoding user to JSON", http.StatusInternalServerError)
+		return
+	}
+}
+
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		log.Println("No Token")
+		http.Error(w, "No Token", http.StatusBadRequest)
+		return
+	}
+
+	decodedToken, err := utils.Base64DecodeString(token)
+	if err != nil {
+		log.Println("Invalid Token")
+		http.Error(w, "Invalid Token", http.StatusUnauthorized)
+		return
+	}
+
+	userName, _, _ := utils.ValidateToken(decodedToken)
+
+	user, err := database.GetUserByUsername(&userName)
+	userID := user.UserID
+
+	if err != nil {
+		log.Println("Invalid User ID, Converting Failed!", userID, err)
+		http.Error(w, "Error Getting Values", http.StatusBadRequest)
+		return
+	}
+
+	if database.DeleteSession(userID) == 1 {
+		log.Println("Session Deleted successfully")
+		w.WriteHeader(http.StatusOK)
+	} else {
+		log.Println("Database could not delete session, There is no session for that user")
+		http.Error(w, "Error deleting session from database", http.StatusNotFound)
+		return
+	}
+}
+
+// Session
+
 func CreateSessionHandler(w http.ResponseWriter, r *http.Request) {
 	var session message.Session
 	err := json.NewDecoder(r.Body).Decode(&session)
@@ -286,35 +452,45 @@ func CreateSessionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token := utils.CreateSession(session.UserID)
+	if token == "" {
+		log.Println("Token could not be created")
+		http.Error(w, "Error creating session", http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: Improve this, It can be impelemented in a better way
+	sessionRes, err := database.GetSessionByUserID(session.UserID)
+	if err != nil {
+		http.Error(w, "Cannot Get Session", http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ck := http.Cookie{
+		Name:     "GreenMap_AUTH",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		// Secure:   true, // Make sure to use this only if you have HTTPS enabled
+		Expires: sessionRes.ExpiresAt,
+	}
+
+	http.SetCookie(w, &ck)
+
 	w.WriteHeader(http.StatusOK)
 
-	// Set Session Time
+	log.Println("Session Created successfully")
+	err = json.NewEncoder(w).Encode(struct{ Token string }{Token: token})
+	if err != nil {
+		log.Println("Error encoding session to JSON", err)
+		http.Error(w, "Error encoding session to JSON", http.StatusInternalServerError)
+		return
+	}
 
 	session.StartedAt = time.Now()
 	session.ExpiresAt = time.Now().Add(time.Hour * 2)
 
-	if database.CreateSession(&session) == 1 {
-		// Create Token For Session
-		user, error := database.GetUserByID(session.UserID)
-		if error != nil {
-			log.Println("Could not get user, userID", error)
-			http.Error(w, "Error getting user", http.StatusNotFound)
-			return
-		}
-		token := utils.Base64EncodeString(utils.CreateToken(user.Username, strconv.FormatInt(session.StartedAt.Unix(), 10), strconv.FormatInt(session.ExpiresAt.Unix(), 10)))
-		log.Println("Session Created successfully")
-		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(struct{ Token string }{Token: token})
-		if err != nil {
-			log.Println("Error encoding session to JSON", err)
-			http.Error(w, "Error encoding session to JSON", http.StatusInternalServerError)
-			return
-		}
-	} else {
-		log.Println("Database could not save")
-		http.Error(w, "Error saving session to database, There is a active session", http.StatusInternalServerError)
-		return
-	}
 }
 
 func CheckSessionHandler(w http.ResponseWriter, r *http.Request) {
@@ -444,6 +620,8 @@ func DeleteSessionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Categories
+
 func GetAllCategoriesHandler(w http.ResponseWriter, r *http.Request) {
 	categories, err := database.GetCategories()
 
@@ -478,4 +656,65 @@ func GetAllCategoriesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+}
+
+// File Stuff
+
+func UploadFileHandler(w http.ResponseWriter, r *http.Request) {
+	filename, err := utils.UploadFile(r)
+	if err != nil {
+		log.Println("Error uploading the file", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	println(filename)
+	status := database.CreateFile(filename)
+	if status != 1 {
+		http.Error(w, "Error saving file to database", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	type FileResponse struct {
+		ID   uint   `json:"id"`
+		Name string `json:"name"`
+	}
+
+	result, err := database.GetFileByName(filename)
+	if err != nil {
+		http.Error(w, "Error Getting Values", http.StatusInternalServerError)
+		return
+	}
+	response := FileResponse{ID: result.ID, Name: result.Name}
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Println("Error encoding file to JSON", err)
+		http.Error(w, "Error encoding file to JSON", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func GetFileByIDHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("ID")
+	fileID, err := strconv.Atoi(id)
+	if err != nil {
+		log.Println("Invalid File ID, Converting Failed!", id, err)
+		http.Error(w, "Error Getting Values", http.StatusInternalServerError)
+		return
+	}
+
+	file, err := database.GetFileByID(uint(fileID))
+	if err != nil {
+		http.Error(w, "Error Getting Values", http.StatusNotFound)
+		return
+	}
+
+	// Assuming that the filename is the file ID with a .jpg extension
+	// and the files are stored in the uploads directory
+	filename := fmt.Sprintf("./uploads/%s", file.Name)
+
+	// Send the image file
+	http.ServeFile(w, r, filename)
 }

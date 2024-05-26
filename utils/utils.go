@@ -35,7 +35,8 @@ func GetLastCreationTime(userIP string) (time.Time, error) {
 }
 
 func CheckMessageData(data *message.Pin) bool {
-	if data.UserIP == "" || data.Location.Lat == "" || data.Location.Long == "" || data.Title == "" || data.Text == "" {
+	if data.Location.Lat == "" || data.Location.Long == "" ||
+		data.Title == "" || data.Text == "" {
 		return false // not Valid
 	}
 	return true // Valid

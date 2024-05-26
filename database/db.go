@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -30,6 +31,7 @@ func InitDB() {
 	DB.AutoMigrate(&message.User{})
 	DB.AutoMigrate(&message.Session{})
 	DB.AutoMigrate(&message.Category{})
+	DB.AutoMigrate(&message.File{})
 
 	// Init Category
 	InitCategory()
@@ -54,14 +56,12 @@ func InitCategory() {
 	for _, category := range categories.Categories {
 		var cat message.Category
 		result := DB.Where("type = ?", category).First(&cat)
-		if result.Error == nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				cat.Type = category
-				log.Println("Category not found, Adding", category)
-				DB.Create(&cat)
-			} else {
-				log.Println("Category Init, Passing", category)
-			}
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			cat.Type = category
+			log.Println("Category not found, Adding", category)
+			DB.Create(&cat)
+		} else {
+			log.Println("Category Init, Passing", category)
 		}
 	}
 
@@ -208,7 +208,6 @@ func GetUsers() ([]message.User, error) {
 
 func CreateSession(session *message.Session) int {
 	currentSession, error := GetSessionByUserID(session.UserID)
-	println(currentSession.ID, currentSession.UserID)
 	if error == nil {
 		if currentSession.ID != 0 {
 			return 0
@@ -259,4 +258,55 @@ func GetCategories() ([]message.Category, error) {
 		return nil, result.Error
 	}
 	return categories, nil
+}
+
+func GetCategoryByID(id uint) (message.Category, error) {
+	var category message.Category
+	result := DB.Where("id = ?", id).First(&category)
+	if result.Error != nil {
+		log.Println("Could not get category", result.Error)
+		return message.Category{}, result.Error
+	}
+	return category, nil
+}
+
+// File Stuff
+
+func CreateFile(filename string) int {
+	fullPath, err := filepath.Abs(filepath.Join("", filename))
+	if err != nil {
+		log.Println("Could not create absolute path", err)
+		return 0
+	}
+
+	result := DB.Create(&message.File{
+		Name: filename,
+		//Link: filepath.Join("/uploads", filename),
+		Link: fullPath,
+	})
+	if result.Error != nil {
+		log.Println("Could not add File", result.Error)
+		return 0
+	}
+	return 1
+}
+
+func GetFileByName(filename string) (message.File, error) {
+	var file message.File
+	result := DB.Where("name = ?", filename).First(&file)
+	if result.Error != nil || result.RowsAffected == 0 {
+		log.Println("Could not Find the file", result.Error)
+		return message.File{}, result.Error
+	}
+	return file, nil
+}
+
+func GetFileByID(id uint) (message.File, error) {
+	var file message.File
+	result := DB.Where("id = ?", id).First(&file)
+	if result.Error != nil || result.RowsAffected == 0 {
+		log.Println("Could not Find the file", result.Error)
+		return message.File{}, result.Error
+	}
+	return file, nil
 }

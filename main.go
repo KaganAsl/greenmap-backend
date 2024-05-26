@@ -23,6 +23,11 @@ func main() {
 		os.Mkdir("./logs", 0755)
 	}
 
+	// Init Uploads Folder
+	if _, err := os.Stat("./uploads"); os.IsNotExist(err) {
+		os.Mkdir("./uploads", 0755)
+	}
+
 	// Init Logger
 	f, err := os.OpenFile("./logs/api.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -52,8 +57,16 @@ func main() {
 	v1.HandleFunc("/session/checkSession", server.CheckSessionHandler).Methods("GET")
 	v1.HandleFunc("/session/deleteSession", server.DeleteSessionHandler).Methods("DELETE")
 
+	// Login/Logout
+	v1.HandleFunc("/login", server.LoginHandler).Methods("POST")
+	v1.HandleFunc("/logout", server.LogoutHandler).Methods("POST")
+
 	// Categories
 	v1.HandleFunc("/category/getAllCategories", server.GetAllCategoriesHandler).Methods("GET")
+
+	// Images
+	v1.HandleFunc("/images/uploadFile", server.UploadFileHandler).Methods("POST") // Very dangerous functions TODO: Make it only for images
+	v1.HandleFunc("/images/getFile", server.GetFileByIDHandler).Methods("GET")    // Very dangerous functions TODO: Make it only for images
 
 	//allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
 
