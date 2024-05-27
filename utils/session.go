@@ -24,6 +24,7 @@ func CreateSession(userID uint) string {
 		token := Base64EncodeString(CreateToken(user.Username, strconv.FormatInt(session.StartedAt.Unix(), 10), strconv.FormatInt(session.ExpiresAt.Unix(), 10)))
 		return token
 	} else {
+		print("Could not create session")
 		return ""
 	}
 }

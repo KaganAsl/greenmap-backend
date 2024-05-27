@@ -21,8 +21,7 @@ type Pin struct {
 	UserIP     string `json:"user_ip"`
 	Title      string `json:"title"`
 	Text       string `json:"text"`
-	PhotoID    uint
-	Photo      File `gorm:"foreignKey:PhotoID" json:"photo_id"`
+	PhotoID    uint   `json:"photo_id"`
 }
 
 type Loc struct {
@@ -38,7 +37,6 @@ type PinWithoutUserIP struct {
 
 type User struct {
 	BaseModel
-	UserID   uint   `json:"user_id"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Email    string `json:"email"`

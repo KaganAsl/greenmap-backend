@@ -14,8 +14,10 @@ import (
 )
 
 func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
+
 	authToken := r.Header.Get("Authorization")
-	if authToken == "" {
+	log.Println(authToken)
+	if authToken == "" || authToken == "undefined" {
 		log.Println("No Token")
 		http.Error(w, "No Token OR User Is not Authenticated", http.StatusBadRequest)
 		return
@@ -71,6 +73,7 @@ func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 
 	_, _, err = r.FormFile("File")
+
 	var image message.File
 	if err == nil {
 		filename, err := utils.UploadFile(r)
@@ -93,7 +96,7 @@ func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pin.PhotoID = image.ID
-	pin.Photo = image
+	//pin.Photo = image
 
 	if database.CreatePin(&pin) == 1 {
 		log.Println("Pin submitted successfully")
@@ -108,7 +111,7 @@ func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
 			Category:  message.CategoryOutput{ID: category.ID, Type: category.Type},
 			Title:     pin.Title,
 			Text:      pin.Text,
-			Photo:     message.FileOutput{ID: pin.Photo.ID, Name: pin.Photo.Name, Link: pin.Photo.Link},
+			Photo:     message.FileOutput{ID: image.ID, Name: image.Name, Link: image.Link},
 			CreatedAt: pin.CreatedAt,
 		})
 		if err != nil {
@@ -146,15 +149,50 @@ func GetAllPinsHandler(w http.ResponseWriter, r *http.Request) {
 
 	*/
 
-	for i := 0; i < len(pins); i++ {
-		utils.GetPinModifier(&pins[i])
+	/*
+		for i := 0; i < len(pins); i++ {
+			utils.GetPinModifier(&pins[i])
+		}
+	*/
+
+	pinsOutput := make([]message.PinOutput, len(pins))
+	for i, pin := range pins {
+		category, err := database.GetCategoryByID(pin.CategoryID)
+		if err != nil {
+			log.Println("Invalid Category ID", pin.CategoryID, err)
+			http.Error(w, "Error Getting Category Values ", http.StatusInternalServerError)
+			return
+		}
+
+		image, err := database.GetFileByID(pin.PhotoID)
+		if err != nil && pin.PhotoID != 0 {
+			log.Println("Invalid Image ID", pin.PhotoID, err)
+			http.Error(w, "Error Getting File Values", http.StatusInternalServerError)
+			return
+		}
+
+		messagePinOutput := message.PinOutput{
+			ID:       pin.ID,
+			Location: message.LocOutput{Lat: pin.Location.Lat, Long: pin.Location.Long},
+			Category: message.CategoryOutput{ID: category.ID, Type: category.Type},
+			Title:    pin.Title,
+			Text:     pin.Text,
+			//Photo:     message.FileOutput{ID: image.ID, Name: image.Name, Link: image.Link},
+			CreatedAt: pin.CreatedAt,
+		}
+
+		if pin.PhotoID != 0 {
+			messagePinOutput.Photo = message.FileOutput{ID: image.ID, Name: image.Name, Link: image.Link}
+		}
+
+		pinsOutput[i] = messagePinOutput
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	w.WriteHeader(http.StatusOK)
 
-	err = json.NewEncoder(w).Encode(pins)
+	err = json.NewEncoder(w).Encode(pinsOutput)
 	if err != nil {
 		log.Println("Error encoding pins to JSON", err)
 		http.Error(w, "Error encoding pins to JSON", http.StatusInternalServerError)
@@ -227,7 +265,7 @@ func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		// Return the username as JSON
-		returnUser := message.User{Username: user.Username, UserID: user.UserID}
+		returnUser := message.User{Username: user.Username}
 		err = json.NewEncoder(w).Encode(returnUser)
 
 		if err != nil {
@@ -355,8 +393,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid Credientals", http.StatusUnauthorized)
 		return
 	}
-
-	token := utils.CreateSession(dbUser.UserID)
+	token := utils.CreateSession(dbUser.ID)
 	if token == "" {
 		log.Println("Token could not be created, Session already active")
 		http.Error(w, "Error creating session", http.StatusInternalServerError)
@@ -364,7 +401,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: Improve this, It can be impelemented in a better way
-	sessionRes, err := database.GetSessionByUserID(dbUser.UserID)
+
+	sessionRes, err := database.GetSessionByUserID(dbUser.ID)
 	if err != nil {
 		http.Error(w, "Cannot Get Session", http.StatusInternalServerError)
 	}
@@ -372,10 +410,10 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	ck := http.Cookie{
-		Name:     "GreenMap_AUTH",
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
+		Name:  "GreenMap_AUTH",
+		Value: token,
+		Path:  "/",
+		//HttpOnly: true,
 		// Secure:   true, // Make sure to use this only if you have HTTPS enabled
 		Expires: sessionRes.ExpiresAt,
 	}
@@ -391,7 +429,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		UserID   uint   `json:"user_id"`
 	}
 
-	err = json.NewEncoder(w).Encode(&UserResponse{Username: dbUser.Username, UserID: dbUser.UserID})
+	err = json.NewEncoder(w).Encode(&UserResponse{Username: dbUser.Username, UserID: dbUser.ID})
 	if err != nil {
 		log.Println("Error encoding user to JSON", err)
 		http.Error(w, "Error encoding user to JSON", http.StatusInternalServerError)
@@ -417,7 +455,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	userName, _, _ := utils.ValidateToken(decodedToken)
 
 	user, err := database.GetUserByUsername(&userName)
-	userID := user.UserID
+	userID := user.ID
 
 	if err != nil {
 		log.Println("Invalid User ID, Converting Failed!", userID, err)
@@ -460,6 +498,7 @@ func CreateSessionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: Improve this, It can be impelemented in a better way
+
 	sessionRes, err := database.GetSessionByUserID(session.UserID)
 	if err != nil {
 		http.Error(w, "Cannot Get Session", http.StatusInternalServerError)
@@ -468,10 +507,10 @@ func CreateSessionHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	ck := http.Cookie{
-		Name:     "GreenMap_AUTH",
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
+		Name:  "GreenMap_AUTH",
+		Value: token,
+		Path:  "/",
+		//HttpOnly: true,
 		// Secure:   true, // Make sure to use this only if you have HTTPS enabled
 		Expires: sessionRes.ExpiresAt,
 	}
@@ -517,23 +556,32 @@ func CheckSessionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, error := database.GetSessionByUserID(user.UserID)
+	session, error := database.GetSessionByUserID(user.ID)
 	if error != nil {
 		log.Println("Could not get session, userID: ", session.UserID, error)
 		http.Error(w, "Error getting session", http.StatusNotFound)
 		return
 	}
 
-	if time.Now().String() > endTime {
+	parsedEndTime, error := strconv.ParseInt(endTime, 10, 64)
+	if error != nil {
+		log.Println("Could not parse end time", endTime, error)
+		http.Error(w, "Error parsing end time", http.StatusInternalServerError)
+		return
+	}
+
+	if time.Now().After(time.Unix(parsedEndTime, 0)) {
 		log.Println("Token Expired", username)
 		http.Error(w, "Token Expired", http.StatusUnauthorized)
-		userID, err := strconv.Atoi(username)
-		if err != nil {
-			log.Println("Invalid User ID, Converting Failed!", username, err)
-			http.Error(w, "Error Getting Values, Session expired", http.StatusNotFound)
-			return
-		}
-		database.DeleteSession(uint(userID))
+		/*
+			userID, err := strconv.Atoi(username)
+			if err != nil {
+				log.Println("Invalid User ID, Converting Failed!", username, err)
+				http.Error(w, "Error Getting Values, Session expired", http.StatusNotFound)
+				return
+			}
+		*/
+		database.DeleteSession(uint(user.ID))
 		return
 	}
 
@@ -602,7 +650,7 @@ func DeleteSessionHandler(w http.ResponseWriter, r *http.Request) {
 	userName, _, _ := utils.ValidateToken(decodedToken)
 
 	user, err := database.GetUserByUsername(&userName)
-	userID := user.UserID
+	userID := user.ID
 
 	if err != nil {
 		log.Println("Invalid User ID, Converting Failed!", userID, err)

@@ -168,7 +168,7 @@ func CreateUser(user *message.User) int {
 
 func GetUserByID(userID uint) (message.User, error) {
 	var user message.User
-	result := DB.Where("user_id = ?", userID).First(&user)
+	result := DB.Where("id = ?", userID).First(&user)
 	if result.Error != nil {
 		log.Println("Could not get user", result.Error)
 		return message.User{}, result.Error
@@ -207,8 +207,8 @@ func GetUsers() ([]message.User, error) {
 }
 
 func CreateSession(session *message.Session) int {
-	currentSession, error := GetSessionByUserID(session.UserID)
-	if error == nil {
+	currentSession, err := GetSessionByUserID(session.UserID)
+	if err == nil {
 		if currentSession.ID != 0 {
 			return 0
 		}
@@ -304,7 +304,7 @@ func GetFileByName(filename string) (message.File, error) {
 func GetFileByID(id uint) (message.File, error) {
 	var file message.File
 	result := DB.Where("id = ?", id).First(&file)
-	if result.Error != nil || result.RowsAffected == 0 {
+	if (result.Error != nil || result.RowsAffected == 0) && id != 0 {
 		log.Println("Could not Find the file", result.Error)
 		return message.File{}, result.Error
 	}
