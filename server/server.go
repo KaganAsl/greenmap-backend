@@ -319,15 +319,28 @@ func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	userID, err := strconv.Atoi(id)
+	type User struct {
+		Username string `json:"username"`
+	}
+
+	var userInput User
+
+	err := json.NewDecoder(r.Body).Decode(&userInput)
+
 	if err != nil {
-		log.Println("Invalid User ID, Converting Failed!", id, err)
-		http.Error(w, "Error Getting Values", http.StatusInternalServerError)
+		log.Println("Invalid Json Format", err)
+		http.Error(w, "Invalid JSON format", http.StatusConflict)
 		return
 	}
 
-	if database.DeleteUser(uint(userID)) == 1 {
+	user, err := database.GetUserByUsername(&userInput.Username)
+
+	if err != nil {
+		http.Error(w, "Error Getting Values", http.StatusNotFound)
+		return
+	}
+
+	if database.DeleteUser(user.ID) == 1 {
 		log.Println("User Deleted successfully")
 		w.WriteHeader(http.StatusOK)
 	} else {

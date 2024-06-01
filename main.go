@@ -50,7 +50,7 @@ func main() {
 	v1.HandleFunc("/user/createUser", server.CreateUserHandler).Methods("POST")
 	v1.HandleFunc("/user/getUserByUsername", server.GetUserByUsernameHandler).Methods("GET")
 	v1.HandleFunc("/user/getUserByEmail", server.GetUserByMailHandler).Methods("GET")
-	v1.HandleFunc("/user/updateUser", server.UpdateUserHandler).Methods("PUT")
+	v1.HandleFunc("/user/updateUser", server.UpdateUserHandler).Methods("POST")
 	v1.HandleFunc("/user/deleteUser", server.DeleteUserHandler).Methods("DELETE")
 
 	// Sessions

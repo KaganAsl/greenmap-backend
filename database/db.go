@@ -176,7 +176,7 @@ func DeleteUser(userID uint) int {
 }
 
 func UpdateUser(user *message.User) int {
-	result := DB.Save(user)
+	result := DB.Where("username = ?", user.Username).Updates(user)
 	if result.Error != nil {
 		log.Println("Could not update user", result.Error)
 		return 0
