@@ -280,7 +280,64 @@ func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func GetUserByIdHandler(w http.ResponseWriter, r *http.Request) {
+func UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+	var user message.User
+
+	err := json.NewDecoder(r.Body).Decode(&user)
+
+	if err != nil {
+		log.Println("Invalid Json Format", err)
+		http.Error(w, "Invalid JSON format", http.StatusConflict)
+		return
+	}
+
+	if !utils.CheckUserData(&user) {
+		log.Println("Invalid Data", user)
+		http.Error(w, "Fill all fields", http.StatusConflict)
+		return
+	}
+
+	if database.UpdateUser(&user) == 1 {
+		log.Println("User Updated successfully")
+		w.Header().Set("Content-Type", "application/json")
+
+		w.WriteHeader(http.StatusOK)
+		// Return the username as JSON
+		returnUser := message.User{Username: user.Username}
+		err = json.NewEncoder(w).Encode(returnUser)
+
+		if err != nil {
+			log.Println("Error encoding user to JSON", err)
+			http.Error(w, "Error encoding user to JSON", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		log.Println("Database could not save, User already exists")
+		http.Error(w, "Error saving User to database, User Already exists", http.StatusBadRequest)
+		return
+	}
+}
+
+func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	userID, err := strconv.Atoi(id)
+	if err != nil {
+		log.Println("Invalid User ID, Converting Failed!", id, err)
+		http.Error(w, "Error Getting Values", http.StatusInternalServerError)
+		return
+	}
+
+	if database.DeleteUser(uint(userID)) == 1 {
+		log.Println("User Deleted successfully")
+		w.WriteHeader(http.StatusOK)
+	} else {
+		log.Println("Database could not delete user, User does not exist")
+		http.Error(w, "Error deleting user from database", http.StatusNotFound)
+		return
+	}
+}
+
+func GetUserByIdHandler(w http.ResponseWriter, r http.Request) {
 	id := r.URL.Query().Get("id")
 	userID, err := strconv.Atoi(id)
 	if err != nil {
@@ -319,7 +376,14 @@ func GetUserByUsernameHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 
-	err = json.NewEncoder(w).Encode(user)
+	userOutput := message.UserOutput{
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+	}
+
+	err = json.NewEncoder(w).Encode(&userOutput)
 	if err != nil {
 		log.Println("Error encoding user to JSON", err)
 		http.Error(w, "Error encoding user to JSON", http.StatusInternalServerError)
@@ -416,6 +480,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		//HttpOnly: true,
 		// Secure:   true, // Make sure to use this only if you have HTTPS enabled
 		Expires: sessionRes.ExpiresAt,
+		MaxAge:  14400,
 	}
 
 	http.SetCookie(w, &ck)
@@ -513,6 +578,7 @@ func CreateSessionHandler(w http.ResponseWriter, r *http.Request) {
 		//HttpOnly: true,
 		// Secure:   true, // Make sure to use this only if you have HTTPS enabled
 		Expires: sessionRes.ExpiresAt,
+		MaxAge:  14400,
 	}
 
 	http.SetCookie(w, &ck)

@@ -166,6 +166,24 @@ func CreateUser(user *message.User) int {
 	return 1
 }
 
+func DeleteUser(userID uint) int {
+	result := DB.Where("id = ?", userID).Delete(&message.User{})
+	if result.Error != nil || result.RowsAffected == 0 {
+		log.Println("Could not delete user", result.Error)
+		return 0
+	}
+	return 1
+}
+
+func UpdateUser(user *message.User) int {
+	result := DB.Save(user)
+	if result.Error != nil {
+		log.Println("Could not update user", result.Error)
+		return 0
+	}
+	return 1
+}
+
 func GetUserByID(userID uint) (message.User, error) {
 	var user message.User
 	result := DB.Where("id = ?", userID).First(&user)
