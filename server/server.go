@@ -501,7 +501,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	dbUser, err := database.GetUserByUsername(&user.Username)
 	if err != nil {
 		log.Println("Could not get user, username: ", user.Username, err)
-		http.Error(w, "Error getting user", http.StatusNotFound)
+		http.Error(w, "User does not exist", http.StatusNotFound)
 		return
 	}
 
