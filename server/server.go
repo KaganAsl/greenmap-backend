@@ -315,7 +315,7 @@ func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		log.Println("Database could not save, User already exists")
-		http.Error(w, "Error saving User to database, User Already exists", http.StatusBadRequest)
+		http.Error(w, "User Already exists", http.StatusBadRequest)
 		return
 	}
 }
