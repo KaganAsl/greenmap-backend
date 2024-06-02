@@ -80,6 +80,15 @@ func CreatePin(pin *message.Pin) int {
 
 }
 
+func DeletePin(pinID uint) int {
+	result := DB.Where("id = ?", pinID).Delete(&message.Pin{})
+	if result.Error != nil || result.RowsAffected == 0 {
+		log.Println("Could not delete pin", result.Error)
+		return 0
+	}
+	return 1
+}
+
 func GetAllPins() ([]message.Pin, error) {
 
 	var pins []message.Pin

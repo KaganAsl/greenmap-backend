@@ -111,6 +111,7 @@ func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
 			Category:  message.CategoryOutput{ID: category.ID, Type: category.Type},
 			Title:     pin.Title,
 			Text:      pin.Text,
+			UserID:    int(pin.UserID),
 			Photo:     message.FileOutput{ID: image.ID, Name: image.Name, Link: image.Link},
 			CreatedAt: pin.CreatedAt,
 		})
@@ -122,6 +123,44 @@ func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Println("Database could not save")
 		http.Error(w, "Error saving pin to database", http.StatusInternalServerError)
+		return
+	}
+}
+
+func DeletePinHandler(w http.ResponseWriter, r *http.Request) {
+	type PinInput struct {
+		ID     uint `json:"pinID"`
+		UserID uint `json:"userID"`
+	}
+
+	var pinInput PinInput
+
+	err := json.NewDecoder(r.Body).Decode(&pinInput)
+
+	if err != nil {
+		log.Println("Invalid Json Format", err)
+		http.Error(w, "Invalid JSON format", http.StatusConflict)
+		return
+	}
+
+	user, err := database.GetUserByID(pinInput.UserID)
+	if err != nil {
+		http.Error(w, "User is Not here", http.StatusNotFound)
+		return
+	}
+
+	_, err = database.GetSessionByUserID(user.ID)
+	if err != nil {
+		http.Error(w, "User is not logged in", http.StatusNotFound)
+		return
+	}
+
+	if database.DeletePin(pinInput.ID) == 1 {
+		log.Println("Pin Deleted successfully")
+		w.WriteHeader(http.StatusOK)
+	} else {
+		log.Println("Database could not delete pin, Pin does not exist")
+		http.Error(w, "Error deleting pin from database", http.StatusNotFound)
 		return
 	}
 }
@@ -177,6 +216,7 @@ func GetAllPinsHandler(w http.ResponseWriter, r *http.Request) {
 			Category: message.CategoryOutput{ID: category.ID, Type: category.Type},
 			Title:    pin.Title,
 			Text:     pin.Text,
+			UserID:   int(pin.UserID),
 			//Photo:     message.FileOutput{ID: image.ID, Name: image.Name, Link: image.Link},
 			CreatedAt: pin.CreatedAt,
 		}

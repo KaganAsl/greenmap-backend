@@ -45,6 +45,7 @@ func main() {
 	v1.HandleFunc("/pin/submitPin", server.SubmitPinHandler).Methods("POST")
 	v1.HandleFunc("/pin/getAllPins", server.GetAllPinsHandler).Methods("GET")
 	v1.HandleFunc("/pin/getPinsByLocation", server.GetPinsByLocationHandler).Methods("GET")
+	v1.HandleFunc("/pin/deletePin", server.DeletePinHandler).Methods("POST")
 
 	// Users
 	v1.HandleFunc("/user/createUser", server.CreateUserHandler).Methods("POST")

@@ -18,6 +18,7 @@ type Pin struct {
 	LocationID uint
 	Location   Loc    `gorm:"foreignKey:LocationID" json:"location"`
 	CategoryID uint   `json:"category_id"`
+	UserID     uint   `json:"user_id"`
 	UserIP     string `json:"user_ip"`
 	Title      string `json:"title"`
 	Text       string `json:"text"`
@@ -65,6 +66,7 @@ type PinOutput struct {
 	ID        uint           `json:"id"`
 	Location  LocOutput      `json:"location"`
 	Category  CategoryOutput `json:"category"`
+	UserID    int            `json:"user_id"`
 	Title     string         `json:"title"`
 	Text      string         `json:"text"`
 	Photo     FileOutput     `json:"photo"`
