@@ -19,7 +19,7 @@ func SubmitPinHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println(authToken)
 	if authToken == "" || authToken == "undefined" {
 		log.Println("No Token")
-		http.Error(w, "No Token OR User Is not Authenticated", http.StatusBadRequest)
+		http.Error(w, "No Token OR User Is not Authenticated", http.StatusUnauthorized)
 		return
 	}
 
@@ -461,7 +461,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	dbUser, err := database.GetUserByUsername(&user.Username)
 	if err != nil {
 		log.Println("Could not get user, username: ", user.Username, err)
-		http.Error(w, "Invalid Credientals", http.StatusNotFound)
+		http.Error(w, "Error getting user", http.StatusNotFound)
 		return
 	}
 
